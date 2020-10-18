@@ -1,5 +1,5 @@
 ## LaravelShoppingcart
-[![Build Status](https://travis-ci.org/michelmelo/laravel-shoppingcart.png?branch=master)](https://travis-ci.org/michelmelo/laravel-shoppingcart)
+
 [![Total Downloads](https://poser.pugx.org/michelmelo/laravel-shoppingcart/downloads.png)](https://packagist.org/packages/michelmelo/laravel-shoppingcart)
 [![Latest Stable Version](https://poser.pugx.org/michelmelo/laravel-shoppingcart/v/stable)](https://packagist.org/packages/michelmelo/laravel-shoppingcart)
 [![Latest Unstable Version](https://poser.pugx.org/michelmelo/laravel-shoppingcart/v/unstable)](https://packagist.org/packages/michelmelo/laravel-shoppingcart)
