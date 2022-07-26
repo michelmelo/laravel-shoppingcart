@@ -3,37 +3,30 @@
 namespace MichelMelo\Tests\Shoppingcart\Fixtures;
 
 use MichelMelo\Shoppingcart\Contracts\Buyable;
+use Illuminate\Database\Eloquent\Model;
 
-class BuyableProduct implements Buyable
+class BuyableProduct extends Model implements Buyable
 {
     /**
-     * @var int|string
-     */
-    private $id;
-
-    /**
-     * @var string
-     */
-    private $name;
-
-    /**
-     * @var float
-     */
-    private $price;
-
-    /**
-     * BuyableProduct constructor.
+     * The attributes that are mass assignable.
      *
-     * @param int|string $id
-     * @param string     $name
-     * @param float      $price
+     * @var array
      */
-    public function __construct($id = 1, $name = 'Item name', $price = 10.00)
-    {
-        $this->id    = $id;
-        $this->name  = $name;
-        $this->price = $price;
-    }
+    protected $fillable = [
+        'id',
+        'name',
+        'title',
+        'description',
+        'price',
+        'weight',
+    ];
+
+    protected $attributes = [
+        'id'     => 1,
+        'name'   => 'Item name',
+        'price'  => 10.00,
+        'weight' => 0,
+    ];
 
     /**
      * Get the identifier of the Buyable item.
@@ -63,5 +56,15 @@ class BuyableProduct implements Buyable
     public function getBuyablePrice($options = null)
     {
         return $this->price;
+    }
+
+    /**
+     * Get the price of the Buyable item.
+     *
+     * @return float
+     */
+    public function getBuyableWeight($options = null)
+    {
+        return $this->weight;
     }
 }

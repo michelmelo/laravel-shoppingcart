@@ -2,19 +2,21 @@
 
 namespace MichelMelo\Tests\Shoppingcart;
 
-use Illuminate\Auth\Events\Logout;
-use Illuminate\Contracts\Auth\Authenticatable;
-use Illuminate\Session\SessionManager;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Event;
+use Carbon\Carbon;
+use MichelMelo\Shoppingcart\Calculation\GrossPrice;
 use MichelMelo\Shoppingcart\Cart;
 use MichelMelo\Shoppingcart\CartItem;
 use MichelMelo\Shoppingcart\ShoppingcartServiceProvider;
 use MichelMelo\Tests\Shoppingcart\Fixtures\BuyableProduct;
+use MichelMelo\Tests\Shoppingcart\Fixtures\BuyableProductTrait;
+use MichelMelo\Tests\Shoppingcart\Fixtures\Identifiable;
 use MichelMelo\Tests\Shoppingcart\Fixtures\ProductModel;
+use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Session\SessionManager;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Event;
 use Mockery;
 use Orchestra\Testbench\TestCase;
-use PHPUnit\Framework\Assert;
 
 class CartTest extends TestCase
 {
@@ -24,6 +26,7 @@ class CartTest extends TestCase
      * Set the package service provider.
      *
      * @param \Illuminate\Foundation\Application $app
+     *
      * @return array
      */
     protected function getPackageProviders($app)
@@ -34,7 +37,8 @@ class CartTest extends TestCase
     /**
      * Define environment setup.
      *
-     * @param  \Illuminate\Foundation\Application  $app
+     * @param \Illuminate\Foundation\Application $app
+     *
      * @return void
      */
     protected function getEnvironmentSetUp($app)
@@ -56,12 +60,12 @@ class CartTest extends TestCase
      *
      * @return void
      */
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
 
         $this->app->afterResolving('migrator', function ($migrator) {
-            $migrator->path(realpath(__DIR__ . '/../database/migrations'));
+            $migrator->path(realpath(__DIR__.'/../src/Database/migrations'));
         });
     }
 
@@ -78,9 +82,15 @@ class CartTest extends TestCase
     {
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct(1, 'First item'));
+        $cart->add(new BuyableProduct([
+            'id'   => 1,
+            'name' => 'First item',
+        ]));
 
-        $cart->instance('wishlist')->add(new BuyableProduct(2, 'Second item'));
+        $cart->instance('wishlist')->add(new BuyableProduct([
+            'id'   => 2,
+            'name' => 'Second item',
+        ]));
 
         $this->assertItemsInCart(1, $cart->instance(Cart::DEFAULT_INSTANCE));
         $this->assertItemsInCart(1, $cart->instance('wishlist'));
@@ -93,7 +103,7 @@ class CartTest extends TestCase
 
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct);
+        $cart->add(new BuyableProduct());
 
         $this->assertEquals(1, $cart->count());
 
@@ -107,7 +117,7 @@ class CartTest extends TestCase
 
         $cart = $this->getCart();
 
-        $cartItem = $cart->add(new BuyableProduct);
+        $cartItem = $cart->add(new BuyableProduct());
 
         $this->assertInstanceOf(CartItem::class, $cartItem);
         $this->assertEquals('027c91341fd5cf4d2579b49c4b6a90da', $cartItem->rowId);
@@ -122,7 +132,11 @@ class CartTest extends TestCase
 
         $cart = $this->getCart();
 
-        $cart->add([new BuyableProduct(1), new BuyableProduct(2)]);
+        $cart->add([new BuyableProduct([
+            'id' => 1,
+        ]), new BuyableProduct([
+            'id' => 2,
+        ])]);
 
         $this->assertEquals(2, $cart->count());
 
@@ -136,7 +150,11 @@ class CartTest extends TestCase
 
         $cart = $this->getCart();
 
-        $cartItems = $cart->add([new BuyableProduct(1), new BuyableProduct(2)]);
+        $cartItems = $cart->add([new BuyableProduct([
+            'id' => 1,
+        ]), new BuyableProduct([
+            'id' => 2,
+        ])]);
 
         $this->assertTrue(is_array($cartItems));
         $this->assertCount(2, $cartItems);
@@ -166,7 +184,7 @@ class CartTest extends TestCase
 
         $cart = $this->getCart();
 
-        $cart->add(['id' => 1, 'name' => 'Test item', 'qty' => 1, 'price' => 10.00]);
+        $cart->add(['id' => 1, 'name' => 'Test item', 'qty' => 1, 'price' => 10.00, 'weight' => 550]);
 
         $this->assertEquals(1, $cart->count());
 
@@ -181,8 +199,8 @@ class CartTest extends TestCase
         $cart = $this->getCart();
 
         $cart->add([
-            ['id' => 1, 'name' => 'Test item 1', 'qty' => 1, 'price' => 10.00],
-            ['id' => 2, 'name' => 'Test item 2', 'qty' => 1, 'price' => 10.00],
+            ['id' => 1, 'name' => 'Test item 1', 'qty' => 1, 'price' => 10.00, 'weight' => 550],
+            ['id' => 2, 'name' => 'Test item 2', 'qty' => 1, 'price' => 10.00, 'weight' => 550],
         ]);
 
         $this->assertEquals(2, $cart->count());
@@ -199,7 +217,7 @@ class CartTest extends TestCase
 
         $options = ['size' => 'XL', 'color' => 'red'];
 
-        $cart->add(new BuyableProduct, 1, $options);
+        $cart->add(new BuyableProduct(), 1, $options);
 
         $cartItem = $cart->get('07d5da5550494c62daf9993cf954303f');
 
@@ -212,11 +230,12 @@ class CartTest extends TestCase
 
     /**
      * @test
-     * @expectedException \InvalidArgumentException
-     * @expectedExceptionMessage Please supply a valid identifier.
      */
     public function it_will_validate_the_identifier()
     {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Please supply a valid identifier.');
+
         $cart = $this->getCart();
 
         $cart->add(null, 'Some title', 1, 10.00);
@@ -224,11 +243,12 @@ class CartTest extends TestCase
 
     /**
      * @test
-     * @expectedException \InvalidArgumentException
-     * @expectedExceptionMessage Please supply a valid name.
      */
     public function it_will_validate_the_name()
     {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Please supply a valid name.');
+
         $cart = $this->getCart();
 
         $cart->add(1, null, 1, 10.00);
@@ -236,11 +256,12 @@ class CartTest extends TestCase
 
     /**
      * @test
-     * @expectedException \InvalidArgumentException
-     * @expectedExceptionMessage Please supply a valid quantity.
      */
     public function it_will_validate_the_quantity()
     {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Please supply a valid quantity.');
+
         $cart = $this->getCart();
 
         $cart->add(1, 'Some title', 'invalid', 10.00);
@@ -248,14 +269,28 @@ class CartTest extends TestCase
 
     /**
      * @test
-     * @expectedException \InvalidArgumentException
-     * @expectedExceptionMessage Please supply a valid price.
      */
     public function it_will_validate_the_price()
     {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Please supply a valid price.');
+
         $cart = $this->getCart();
 
         $cart->add(1, 'Some title', 1, 'invalid');
+    }
+
+    /**
+     * @test
+     */
+    public function it_will_validate_the_weight()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Please supply a valid weight');
+
+        $cart = $this->getCart();
+
+        $cart->add(1, 'Some title', 1, 10.00, 'invalid');
     }
 
     /** @test */
@@ -263,7 +298,7 @@ class CartTest extends TestCase
     {
         $cart = $this->getCart();
 
-        $item = new BuyableProduct;
+        $item = new BuyableProduct();
 
         $cart->add($item);
         $cart->add($item);
@@ -277,7 +312,7 @@ class CartTest extends TestCase
     {
         $cart = $this->getCart();
 
-        $item = new BuyableProduct;
+        $item = new BuyableProduct();
 
         $cart->add($item);
         $cart->add($item);
@@ -294,7 +329,7 @@ class CartTest extends TestCase
 
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct);
+        $cart->add(new BuyableProduct());
 
         $cart->update('027c91341fd5cf4d2579b49c4b6a90da', 2);
 
@@ -311,9 +346,14 @@ class CartTest extends TestCase
 
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct);
+        $cart->add(new BuyableProductTrait([
+            'description' => 'Description',
+        ]));
 
-        $cart->update('027c91341fd5cf4d2579b49c4b6a90da', new BuyableProduct(1, 'Different description'));
+        $cart->update('027c91341fd5cf4d2579b49c4b6a90da', new BuyableProductTrait([
+            'name'        => '',
+            'description' => 'Different description',
+        ]));
 
         $this->assertItemsInCart(1, $cart);
         $this->assertEquals('Different description', $cart->get('027c91341fd5cf4d2579b49c4b6a90da')->name);
@@ -328,7 +368,9 @@ class CartTest extends TestCase
 
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct);
+        $cart->add(new BuyableProductTrait([
+            'description' => 'Description',
+        ]));
 
         $cart->update('027c91341fd5cf4d2579b49c4b6a90da', ['name' => 'Different description']);
 
@@ -340,15 +382,18 @@ class CartTest extends TestCase
 
     /**
      * @test
-     * @expectedException \MichelMelo\Shoppingcart\Exceptions\InvalidRowIDException
      */
     public function it_will_throw_an_exception_if_a_rowid_was_not_found()
     {
+        $this->expectException(\MichelMelo\Shoppingcart\Exceptions\InvalidRowIDException::class);
+
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct);
+        $cart->add(new BuyableProduct());
 
-        $cart->update('none-existing-rowid', new BuyableProduct(1, 'Different description'));
+        $cart->update('none-existing-rowid', new BuyableProduct([
+            'description' => 'Different description',
+        ]));
     }
 
     /** @test */
@@ -356,7 +401,7 @@ class CartTest extends TestCase
     {
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct, 1, ['color' => 'red']);
+        $cart->add(new BuyableProduct(), 1, ['color' => 'red']);
 
         $cart->update('ea65e0bdcd1967c4b3149e9e780177c0', ['options' => ['color' => 'blue']]);
 
@@ -370,13 +415,28 @@ class CartTest extends TestCase
     {
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct, 1, ['color' => 'red']);
-        $cart->add(new BuyableProduct, 1, ['color' => 'blue']);
+        $cart->add(new BuyableProduct(), 1, ['color' => 'red']);
+        $cart->add(new BuyableProduct(), 1, ['color' => 'blue']);
 
         $cart->update('7e70a1e9aaadd18c72921a07aae5d011', ['options' => ['color' => 'red']]);
 
         $this->assertItemsInCart(2, $cart);
         $this->assertRowsInCart(1, $cart);
+    }
+
+    /** @test */
+    public function it_will_keep_items_sequence_if_the_options_changed()
+    {
+        $cart = $this->getCart();
+
+        $cart->add(new BuyableProduct(), 1, ['color' => 'red']);
+        $cart->add(new BuyableProduct(), 1, ['color' => 'green']);
+        $cart->add(new BuyableProduct(), 1, ['color' => 'blue']);
+
+        $cart->update($cart->content()->values()[1]->rowId, ['options' => ['color' => 'yellow']]);
+
+        $this->assertRowsInCart(3, $cart);
+        $this->assertEquals('yellow', $cart->content()->values()[1]->options->color);
     }
 
     /** @test */
@@ -386,7 +446,7 @@ class CartTest extends TestCase
 
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct);
+        $cart->add(new BuyableProduct());
 
         $cart->remove('027c91341fd5cf4d2579b49c4b6a90da');
 
@@ -403,7 +463,7 @@ class CartTest extends TestCase
 
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct);
+        $cart->add(new BuyableProduct());
 
         $cart->update('027c91341fd5cf4d2579b49c4b6a90da', 0);
 
@@ -420,7 +480,7 @@ class CartTest extends TestCase
 
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct);
+        $cart->add(new BuyableProduct());
 
         $cart->update('027c91341fd5cf4d2579b49c4b6a90da', -1);
 
@@ -435,7 +495,7 @@ class CartTest extends TestCase
     {
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct);
+        $cart->add(new BuyableProduct());
 
         $cartItem = $cart->get('027c91341fd5cf4d2579b49c4b6a90da');
 
@@ -447,8 +507,10 @@ class CartTest extends TestCase
     {
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct(1));
-        $cart->add(new BuyableProduct(2));
+        $cart->add(new BuyableProduct());
+        $cart->add(new BuyableProduct([
+            'id' => 2,
+        ]));
 
         $content = $cart->content();
 
@@ -472,8 +534,10 @@ class CartTest extends TestCase
     {
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct(1));
-        $cart->add(new BuyableProduct(2));
+        $cart->add(new BuyableProduct());
+        $cart->add(new BuyableProduct([
+            'id' => 2,
+        ]));
 
         $content = $cart->content();
 
@@ -488,6 +552,8 @@ class CartTest extends TestCase
                 'tax'      => 2.10,
                 'subtotal' => 10.0,
                 'options'  => [],
+                'discount' => 0.0,
+                'weight'   => 0.0,
             ],
             '370d08585360f5c568b18d1f2e4ca1df' => [
                 'rowId'    => '370d08585360f5c568b18d1f2e4ca1df',
@@ -498,6 +564,8 @@ class CartTest extends TestCase
                 'tax'      => 2.10,
                 'subtotal' => 10.0,
                 'options'  => [],
+                'discount' => 0.0,
+                'weight'   => 0.0,
             ],
         ], $content->toArray());
     }
@@ -507,7 +575,7 @@ class CartTest extends TestCase
     {
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct);
+        $cart->add(new BuyableProduct());
 
         $this->assertItemsInCart(1, $cart);
 
@@ -521,8 +589,14 @@ class CartTest extends TestCase
     {
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct(1, 'First item', 10.00));
-        $cart->add(new BuyableProduct(2, 'Second item', 25.00), 2);
+        $cart->add(new BuyableProduct([
+            'name' => 'First item',
+        ]));
+        $cart->add(new BuyableProduct([
+            'id'    => 2,
+            'name'  => 'Second item',
+            'price' => 25.00,
+        ]), 2);
 
         $this->assertItemsInCart(3, $cart);
         $this->assertEquals(60.00, $cart->subtotal());
@@ -533,8 +607,15 @@ class CartTest extends TestCase
     {
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct(1, 'First item', 1000.00));
-        $cart->add(new BuyableProduct(2, 'Second item', 2500.00), 2);
+        $cart->add(new BuyableProduct([
+            'name'  => 'First item',
+            'price' => 1000.00,
+        ]));
+        $cart->add(new BuyableProduct([
+            'id'    => 2,
+            'name'  => 'Second item',
+            'price' => 2500.00,
+        ]), 2);
 
         $this->assertItemsInCart(3, $cart);
         $this->assertEquals('6.000,00', $cart->subtotal(2, ',', '.'));
@@ -545,8 +626,13 @@ class CartTest extends TestCase
     {
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct(1, 'Some item'));
-        $cart->add(new BuyableProduct(2, 'Another item'));
+        $cart->add(new BuyableProduct([
+            'name' => 'Some item',
+        ]));
+        $cart->add(new BuyableProduct([
+            'id'   => 2,
+            'name' => 'Another item',
+        ]));
 
         $cartItem = $cart->search(function ($cartItem, $rowId) {
             return $cartItem->name == 'Some item';
@@ -563,9 +649,17 @@ class CartTest extends TestCase
     {
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct(1, 'Some item'));
-        $cart->add(new BuyableProduct(2, 'Some item'));
-        $cart->add(new BuyableProduct(3, 'Another item'));
+        $cart->add(new BuyableProduct([
+            'name' => 'Some item',
+        ]));
+        $cart->add(new BuyableProduct([
+            'id'   => 2,
+            'name' => 'Some item',
+        ]));
+        $cart->add(new BuyableProduct([
+            'id'   => 3,
+            'name' => 'Another item',
+        ]));
 
         $cartItem = $cart->search(function ($cartItem, $rowId) {
             return $cartItem->name == 'Some item';
@@ -579,8 +673,13 @@ class CartTest extends TestCase
     {
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct(1, 'Some item'), 1, ['color' => 'red']);
-        $cart->add(new BuyableProduct(2, 'Another item'), 1, ['color' => 'blue']);
+        $cart->add(new BuyableProduct([
+            'name' => 'Some item',
+        ]), 1, ['color' => 'red']);
+        $cart->add(new BuyableProduct([
+            'id'   => 2,
+            'name' => 'Another item',
+        ]), 1, ['color' => 'blue']);
 
         $cartItem = $cart->search(function ($cartItem, $rowId) {
             return $cartItem->options->color == 'red';
@@ -597,11 +696,11 @@ class CartTest extends TestCase
     {
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct);
+        $cart->add(new BuyableProduct());
 
         $cartItem = $cart->get('027c91341fd5cf4d2579b49c4b6a90da');
 
-        $this->assertContains(BuyableProduct::class, Assert::readAttribute($cartItem, 'associatedModel'));
+        $this->assertEquals(BuyableProduct::class, $cartItem->modelFQCN);
     }
 
     /** @test */
@@ -611,20 +710,21 @@ class CartTest extends TestCase
 
         $cart->add(1, 'Test item', 1, 10.00);
 
-        $cart->associate('027c91341fd5cf4d2579b49c4b6a90da', new ProductModel);
+        $cart->associate('027c91341fd5cf4d2579b49c4b6a90da', new ProductModel());
 
         $cartItem = $cart->get('027c91341fd5cf4d2579b49c4b6a90da');
 
-        $this->assertEquals(ProductModel::class, Assert::readAttribute($cartItem, 'associatedModel'));
+        $this->assertEquals(ProductModel::class, $cartItem->modelFQCN);
     }
 
     /**
      * @test
-     * @expectedException \MichelMelo\Shoppingcart\Exceptions\UnknownModelException
-     * @expectedExceptionMessage The supplied model SomeModel does not exist.
      */
     public function it_will_throw_an_exception_when_a_non_existing_model_is_being_associated()
     {
+        $this->expectException(\MichelMelo\Shoppingcart\Exceptions\UnknownModelException::class);
+        $this->expectExceptionMessage('The supplied model SomeModel does not exist.');
+
         $cart = $this->getCart();
 
         $cart->add(1, 'Test item', 1, 10.00);
@@ -639,7 +739,7 @@ class CartTest extends TestCase
 
         $cart->add(1, 'Test item', 1, 10.00);
 
-        $cart->associate('027c91341fd5cf4d2579b49c4b6a90da', new ProductModel);
+        $cart->associate('027c91341fd5cf4d2579b49c4b6a90da', new ProductModel());
 
         $cartItem = $cart->get('027c91341fd5cf4d2579b49c4b6a90da');
 
@@ -652,7 +752,10 @@ class CartTest extends TestCase
     {
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct(1, 'Some title', 9.99), 3);
+        $cart->add(new BuyableProduct([
+            'name'  => 'Some title',
+            'price' => 9.99,
+        ]), 3);
 
         $cartItem = $cart->get('027c91341fd5cf4d2579b49c4b6a90da');
 
@@ -664,7 +767,10 @@ class CartTest extends TestCase
     {
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct(1, 'Some title', 500), 3);
+        $cart->add(new BuyableProduct([
+            'name'  => 'Some title',
+            'price' => 500,
+        ]), 3);
 
         $cartItem = $cart->get('027c91341fd5cf4d2579b49c4b6a90da');
 
@@ -676,7 +782,9 @@ class CartTest extends TestCase
     {
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct(1, 'Some title', 10.00), 1);
+        $cart->add(new BuyableProduct([
+            'name' => 'Some title',
+        ]), 1);
 
         $cartItem = $cart->get('027c91341fd5cf4d2579b49c4b6a90da');
 
@@ -688,7 +796,9 @@ class CartTest extends TestCase
     {
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct(1, 'Some title', 10.00), 1);
+        $cart->add(new BuyableProduct([
+            'name' => 'Some title',
+        ]), 1);
 
         $cart->setTax('027c91341fd5cf4d2579b49c4b6a90da', 19);
 
@@ -702,7 +812,10 @@ class CartTest extends TestCase
     {
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct(1, 'Some title', 10000.00), 1);
+        $cart->add(new BuyableProduct([
+            'name'  => 'Some title',
+            'price' => 10000.00,
+        ]), 1);
 
         $cartItem = $cart->get('027c91341fd5cf4d2579b49c4b6a90da');
 
@@ -714,8 +827,14 @@ class CartTest extends TestCase
     {
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct(1, 'Some title', 10.00), 1);
-        $cart->add(new BuyableProduct(2, 'Some title', 20.00), 2);
+        $cart->add(new BuyableProduct([
+            'name' => 'Some title',
+        ]), 1);
+        $cart->add(new BuyableProduct([
+            'id'    => 2,
+            'name'  => 'Some title',
+            'price' => 20.00,
+        ]), 2);
 
         $this->assertEquals(10.50, $cart->tax);
     }
@@ -725,10 +844,33 @@ class CartTest extends TestCase
     {
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct(1, 'Some title', 1000.00), 1);
-        $cart->add(new BuyableProduct(2, 'Some title', 2000.00), 2);
+        $cart->add(new BuyableProduct([
+            'name'  => 'Some title',
+            'price' => 1000.00,
+        ]), 1);
+        $cart->add(new BuyableProduct([
+            'id'    => 2,
+            'name'  => 'Some title',
+            'price' => 2000.00,
+        ]), 2);
 
         $this->assertEquals('1.050,00', $cart->tax(2, ',', '.'));
+    }
+
+    /** @test */
+    public function it_can_access_tax_as_percentage()
+    {
+        $cart = $this->getCart();
+
+        $cart->add(new BuyableProduct([
+            'name' => 'Some title',
+        ]), 1);
+
+        $cart->setTax('027c91341fd5cf4d2579b49c4b6a90da', 19);
+
+        $cartItem = $cart->get('027c91341fd5cf4d2579b49c4b6a90da');
+
+        $this->assertEquals(19, $cartItem->taxRate);
     }
 
     /** @test */
@@ -736,8 +878,11 @@ class CartTest extends TestCase
     {
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct(1, 'Some title', 10.00), 1);
-        $cart->add(new BuyableProduct(2, 'Some title', 20.00), 2);
+        $cart->add(new BuyableProduct(), 1);
+        $cart->add(new BuyableProduct([
+            'id'    => 2,
+            'price' => 20.00,
+        ]), 2);
 
         $this->assertEquals(50.00, $cart->subtotal);
     }
@@ -747,8 +892,13 @@ class CartTest extends TestCase
     {
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct(1, 'Some title', 1000.00), 1);
-        $cart->add(new BuyableProduct(2, 'Some title', 2000.00), 2);
+        $cart->add(new BuyableProduct([
+            'price' => 1000.00,
+        ]), 1);
+        $cart->add(new BuyableProduct([
+            'id'    => 2,
+            'price' => 2000.00,
+        ]), 2);
 
         $this->assertEquals('5000,00', $cart->subtotal(2, ',', ''));
     }
@@ -760,8 +910,13 @@ class CartTest extends TestCase
 
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct(1, 'Some title', 1000.00), 1);
-        $cart->add(new BuyableProduct(2, 'Some title', 2000.00), 2);
+        $cart->add(new BuyableProduct([
+            'price' => 1000.00,
+        ]), 1);
+        $cart->add(new BuyableProduct([
+            'id'    => 2,
+            'price' => 2000.00,
+        ]), 2);
 
         $this->assertEquals('5000,00', $cart->subtotal());
         $this->assertEquals('1050,00', $cart->tax());
@@ -777,18 +932,23 @@ class CartTest extends TestCase
     {
         $this->setConfigFormat(2, ',', '');
 
-        $cart = $this->getCart();
+        $cart = $this->getCartDiscount(50);
 
-        $cart->add(new BuyableProduct(1, 'Some title', 2000.00), 2);
+        $cart->add(new BuyableProduct([
+            'price' => 2000.00,
+        ]), 2);
 
         $cartItem = $cart->get('027c91341fd5cf4d2579b49c4b6a90da');
 
         $this->assertEquals('2000,00', $cartItem->price());
-        $this->assertEquals('2420,00', $cartItem->priceTax());
-        $this->assertEquals('4000,00', $cartItem->subtotal());
-        $this->assertEquals('4840,00', $cartItem->total());
-        $this->assertEquals('420,00', $cartItem->tax());
-        $this->assertEquals('840,00', $cartItem->taxTotal());
+        $this->assertEquals('1000,00', $cartItem->discount());
+        $this->assertEquals('2000,00', $cartItem->discountTotal());
+        $this->assertEquals('1000,00', $cartItem->priceTarget());
+        $this->assertEquals('2000,00', $cartItem->subtotal());
+        $this->assertEquals('210,00', $cartItem->tax());
+        $this->assertEquals('420,00', $cartItem->taxTotal());
+        $this->assertEquals('1210,00', $cartItem->priceTax());
+        $this->assertEquals('2420,00', $cartItem->total());
     }
 
     /** @test */
@@ -802,23 +962,23 @@ class CartTest extends TestCase
 
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct);
+        $cart->add(new BuyableProduct());
 
         $cart->store($identifier = 123);
 
-        $serialized = serialize($cart->content());
+        Event::assertDispatched('cart.stored');
+
+        if (app('db')->getDriverName() === 'pgsql') {
+            $serialized = base64_encode(serialize($cart->content()));
+        } else {
+            $serialized = serialize($cart->content());
+        }
 
         $this->assertDatabaseHas('shoppingcart', ['identifier' => $identifier, 'instance' => 'default', 'content' => $serialized]);
-
-        Event::assertDispatched('cart.stored');
     }
 
-    /**
-     * @test
-     * @expectedException \MichelMelo\Shoppingcart\Exceptions\CartAlreadyStoredException
-     * @expectedExceptionMessage A cart with identifier 123 was already stored.
-     */
-    public function it_will_throw_an_exception_when_a_cart_was_already_stored_using_the_specified_identifier()
+    /** @test */
+    public function it_can_store_and_retrieve_cart_from_the_database_with_correct_timestamps()
     {
         $this->artisan('migrate', [
             '--database' => 'testing',
@@ -828,13 +988,62 @@ class CartTest extends TestCase
 
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct);
+        $cart->add(new BuyableProduct());
+
+        /* Sleep as database does not store ms */
+        $beforeStore = Carbon::now();
+        sleep(1);
 
         $cart->store($identifier = 123);
+
+        sleep(1);
+        $afterStore = Carbon::now();
+
+        $cart->restore($identifier);
+
+        $this->assertTrue($beforeStore->lessThanOrEqualTo($cart->createdAt()) && $afterStore->greaterThanOrEqualTo($cart->createdAt()));
+        $this->assertTrue($beforeStore->lessThanOrEqualTo($cart->updatedAt()) && $afterStore->greaterThanOrEqualTo($cart->updatedAt()));
+
+        /* Sleep as database does not store ms */
+        $beforeSecondStore = Carbon::now();
+        sleep(1);
 
         $cart->store($identifier);
 
         Event::assertDispatched('cart.stored');
+
+        sleep(1);
+        $afterSecondStore = Carbon::now();
+
+        $cart->restore($identifier);
+
+        $this->assertTrue($beforeStore->lessThanOrEqualTo($cart->createdAt()) && $afterStore->greaterThanOrEqualTo($cart->createdAt()));
+        $this->assertTrue($beforeSecondStore->lessThanOrEqualTo($cart->updatedAt()) && $afterSecondStore->greaterThanOrEqualTo($cart->updatedAt()));
+    }
+
+    /**
+     * @test
+     */
+    public function it_will_throw_an_exception_when_a_cart_was_already_stored_using_the_specified_identifier()
+    {
+        $this->expectException(\MichelMelo\Shoppingcart\Exceptions\CartAlreadyStoredException::class);
+        $this->expectExceptionMessage('A cart with identifier 123 was already stored.');
+
+        $this->artisan('migrate', [
+            '--database' => 'testing',
+        ]);
+
+        Event::fake();
+
+        $cart = $this->getCart();
+
+        $cart->add(new BuyableProduct());
+
+        $cart->store($identifier = 123);
+
+        Event::assertDispatched('cart.stored');
+
+        $cart->store($identifier);
     }
 
     /** @test */
@@ -848,7 +1057,7 @@ class CartTest extends TestCase
 
         $cart = $this->getCart();
 
-        $cart->add(new BuyableProduct);
+        $cart->add(new BuyableProduct());
 
         $cart->store($identifier = 123);
 
@@ -858,11 +1067,11 @@ class CartTest extends TestCase
 
         $cart->restore($identifier);
 
+        Event::assertDispatched('cart.restored');
+
         $this->assertItemsInCart(1, $cart);
 
         $this->assertDatabaseMissing('shoppingcart', ['identifier' => $identifier, 'instance' => 'default']);
-
-        Event::assertDispatched('cart.restored');
     }
 
     /** @test */
@@ -882,24 +1091,78 @@ class CartTest extends TestCase
     /** @test */
     public function it_can_calculate_all_values()
     {
-        $cart = $this->getCart();
+        $cart = $this->getCartDiscount(50);
 
-        $cart->add(new BuyableProduct(1, 'First item', 10.00), 2);
+        $cart->add(new BuyableProduct([
+            'name' => 'First item',
+        ]), 2);
 
         $cartItem = $cart->get('027c91341fd5cf4d2579b49c4b6a90da');
 
         $cart->setTax('027c91341fd5cf4d2579b49c4b6a90da', 19);
 
         $this->assertEquals(10.00, $cartItem->price(2));
-        $this->assertEquals(11.90, $cartItem->priceTax(2));
-        $this->assertEquals(20.00, $cartItem->subtotal(2));
-        $this->assertEquals(23.80, $cartItem->total(2));
-        $this->assertEquals(1.90, $cartItem->tax(2));
-        $this->assertEquals(3.80, $cartItem->taxTotal(2));
+        $this->assertEquals(5.00, $cartItem->discount(2));
+        $this->assertEquals(10.00, $cartItem->discountTotal(2));
+        $this->assertEquals(5.00, $cartItem->priceTarget(2));
+        $this->assertEquals(10.00, $cartItem->subtotal(2));
+        $this->assertEquals(0.95, $cartItem->tax(2));
+        $this->assertEquals(1.90, $cartItem->taxTotal(2));
+        $this->assertEquals(5.95, $cartItem->priceTax(2));
+        $this->assertEquals(11.90, $cartItem->total(2));
+    }
 
-        $this->assertEquals(20.00, $cart->subtotal(2));
-        $this->assertEquals(23.80, $cart->total(2));
-        $this->assertEquals(3.80, $cart->tax(2));
+    /** @test */
+    public function it_can_calculate_all_values_after_updating_from_array()
+    {
+        $cart = $this->getCartDiscount(50);
+        $cart->add(new BuyableProduct([
+            'name' => 'First item',
+        ]), 1);
+
+        $cart->update('027c91341fd5cf4d2579b49c4b6a90da', ['qty' => 2]);
+
+        $cartItem = $cart->get('027c91341fd5cf4d2579b49c4b6a90da');
+
+        $cart->setTax('027c91341fd5cf4d2579b49c4b6a90da', 19);
+
+        $this->assertEquals(10.00, $cartItem->price(2));
+        $this->assertEquals(5.00, $cartItem->discount(2));
+        $this->assertEquals(10.00, $cartItem->discountTotal(2));
+        $this->assertEquals(5.00, $cartItem->priceTarget(2));
+        $this->assertEquals(10.00, $cartItem->subtotal(2));
+        $this->assertEquals(0.95, $cartItem->tax(2));
+        $this->assertEquals(1.90, $cartItem->taxTotal(2));
+        $this->assertEquals(5.95, $cartItem->priceTax(2));
+        $this->assertEquals(11.90, $cartItem->total(2));
+    }
+
+    /** @test */
+    public function it_can_calculate_all_values_after_updating_from_buyable()
+    {
+        $cart = $this->getCartDiscount(50);
+        $cart->add(new BuyableProduct([
+            'name'  => 'First item',
+            'price' => 5.00,
+        ]), 2);
+
+        $cart->update('027c91341fd5cf4d2579b49c4b6a90da', new BuyableProduct([
+            'name' => 'First item',
+        ]));
+
+        $cartItem = $cart->get('027c91341fd5cf4d2579b49c4b6a90da');
+
+        $cart->setTax('027c91341fd5cf4d2579b49c4b6a90da', 19);
+
+        $this->assertEquals(10.00, $cartItem->price(2));
+        $this->assertEquals(5.00, $cartItem->discount(2));
+        $this->assertEquals(10.00, $cartItem->discountTotal(2));
+        $this->assertEquals(5.00, $cartItem->priceTarget(2));
+        $this->assertEquals(10.00, $cartItem->subtotal(2));
+        $this->assertEquals(0.95, $cartItem->tax(2));
+        $this->assertEquals(1.90, $cartItem->taxTotal(2));
+        $this->assertEquals(5.95, $cartItem->priceTax(2));
+        $this->assertEquals(11.90, $cartItem->total(2));
     }
 
     /** @test */
@@ -913,7 +1176,424 @@ class CartTest extends TestCase
 
         $user = Mockery::mock(Authenticatable::class);
 
-        event(new Logout($user));
+        \Auth::guard('web')->logout();
+    }
+
+    /** @test */
+    public function can_change_tax_globally()
+    {
+        $cart = $this->getCart();
+
+        $cart->add(new BuyableProduct([
+            'name' => 'Item',
+        ]), 2);
+
+        $cart->setGlobalTax(0);
+
+        $cartItem = $cart->get('027c91341fd5cf4d2579b49c4b6a90da');
+
+        $this->assertEquals('20.00', $cartItem->total(2));
+    }
+
+    /** @test */
+    public function can_change_discount_globally()
+    {
+        $cart = $this->getCart();
+
+        $cart->add(new BuyableProduct([
+            'name' => 'Item',
+        ]), 2);
+
+        $cart->setGlobalTax(0);
+        $cart->setGlobalDiscount(50);
+
+        $cartItem = $cart->get('027c91341fd5cf4d2579b49c4b6a90da');
+
+        $this->assertEquals('10.00', $cartItem->total(2));
+    }
+
+    /** @test */
+    public function cart_has_no_rounding_errors()
+    {
+        $cart = $this->getCart();
+
+        $cart->add(new BuyableProduct([
+            'name'  => 'Item',
+            'price' => 10.004,
+        ]), 2);
+
+        $cartItem = $cart->get('027c91341fd5cf4d2579b49c4b6a90da');
+
+        $this->assertEquals('24.21', $cartItem->total(2));
+    }
+
+    /** @test */
+    public function it_can_merge_multiple_carts()
+    {
+        $this->artisan('migrate', [
+            '--database' => 'testing',
+        ]);
+
+        Event::fake();
+
+        $cart = $this->getCartDiscount(50);
+        $cart->add(new BuyableProduct([
+            'name' => 'Item',
+        ]), 1);
+        $cart->add(new BuyableProduct([
+            'id'   => 2,
+            'name' => 'Item 2',
+        ]), 1);
+        $cart->store('test');
+
+        $cart2 = $this->getCart();
+        $cart2->instance('test2');
+        $cart2->setGlobalTax(0);
+        $cart2->setGlobalDiscount(0);
+
+        $this->assertEquals('0', $cart2->countItems());
+
+        $cart2->merge('test');
+
+        $this->assertEquals('2', $cart2->countItems());
+        $this->assertEquals(20, $cart2->totalFloat());
+
+        $cart3 = $this->getCart();
+        $cart3->instance('test3');
+        $cart3->setGlobalTax(0);
+        $cart3->setGlobalDiscount(0);
+
+        $cart3->merge('test', true);
+
+        $this->assertEquals(10, $cart3->totalFloat());
+    }
+
+    /** @test */
+    public function it_cant_merge_non_existing_cart()
+    {
+        $this->artisan('migrate', [
+            '--database' => 'testing',
+        ]);
+        Event::fake();
+        $cart = $this->getCartDiscount(50);
+        $cart->add(new BuyableProduct([
+            'name' => 'Item',
+        ]), 1);
+        $cart->add(new BuyableProduct([
+            'id'   => 2,
+            'name' => 'Item 2',
+        ]), 1);
+        $this->assertEquals(false, $cart->merge('doesNotExist'));
+        $this->assertEquals(2, $cart->countItems());
+    }
+
+    /** @test */
+    public function cart_can_calculate_all_values()
+    {
+        $cart = $this->getCartDiscount(50);
+        $cart->add(new BuyableProduct([
+            'name' => 'First item',
+        ]), 1);
+        $cartItem = $cart->get('027c91341fd5cf4d2579b49c4b6a90da');
+        $cart->setTax('027c91341fd5cf4d2579b49c4b6a90da', 19);
+        $this->assertEquals('10.00', $cart->initial(2));
+        $this->assertEquals(10.00, $cart->initialFloat());
+        $this->assertEquals('5.00', $cart->discount(2));
+        $this->assertEquals(5.00, $cart->discountFloat());
+        $this->assertEquals('5.00', $cart->subtotal(2));
+        $this->assertEquals(5.00, $cart->subtotalFloat());
+        $this->assertEquals('0.95', $cart->tax(2));
+        $this->assertEquals(0.95, $cart->taxFloat());
+        $this->assertEquals('5.95', $cart->total(2));
+        $this->assertEquals(5.95, $cart->totalFloat());
+    }
+
+    /** @test */
+    public function can_access_cart_item_propertys()
+    {
+        $cart = $this->getCartDiscount(50);
+        $cart->add(new BuyableProduct([
+            'name' => 'First item',
+        ]), 1);
+        $cartItem = $cart->get('027c91341fd5cf4d2579b49c4b6a90da');
+        $this->assertEquals(50, $cartItem->discountRate);
+    }
+
+    /** @test */
+    public function cant_access_non_existant_propertys()
+    {
+        $cart = $this->getCartDiscount(50);
+        $cart->add(new BuyableProduct([
+            'name' => 'First item',
+        ]), 1);
+        $cartItem = $cart->get('027c91341fd5cf4d2579b49c4b6a90da');
+        $this->assertEquals(null, $cartItem->doesNotExist);
+        $this->assertEquals(null, $cart->doesNotExist);
+    }
+
+    /** @test */
+    public function can_set_cart_item_discount()
+    {
+        $cart = $this->getCart();
+        $cart->add(new BuyableProduct([
+            'name' => 'First item',
+        ]), 1);
+        $cartItem = $cart->get('027c91341fd5cf4d2579b49c4b6a90da');
+        $cart->setDiscount('027c91341fd5cf4d2579b49c4b6a90da', 50);
+        $this->assertEquals(50, $cartItem->discountRate);
+    }
+
+    /** @test */
+    public function can_set_cart_item_weight_and_calculate_total_weight()
+    {
+        $cart = $this->getCart();
+        $cart->add(new BuyableProduct([
+            'name'   => 'First item',
+            'weight' => 250,
+        ]), 2);
+        $cartItem = $cart->get('027c91341fd5cf4d2579b49c4b6a90da');
+        $cart->setDiscount('027c91341fd5cf4d2579b49c4b6a90da', 50);
+        $this->assertEquals('500.00', $cart->weight(2));
+        $this->assertEquals(500.00, $cart->weightFloat());
+        $this->assertEquals(500.00, $cartItem->weightTotal);
+        $this->assertEquals('250.00', $cartItem->weight(2));
+    }
+
+    /** @test */
+    public function cart_can_create_and_restore_from_instance_identifier()
+    {
+        $this->artisan('migrate', [
+            '--database' => 'testing',
+        ]);
+
+        Event::fake();
+
+        $identifier = new Identifiable('User1', 0);
+        $cart = $this->getCart();
+
+        $cart->instance($identifier);
+        $this->assertEquals('User1', $cart->currentInstance());
+
+        $cart->add(new BuyableProduct([
+            'name'   => 'First item',
+            'weight' => 250,
+        ]), 2);
+        $this->assertItemsInCart(2, $cart);
+
+        $cart->store($identifier);
+        $cart->destroy();
+        $this->assertItemsInCart(0, $cart);
+
+        $cart->restore($identifier);
+        $this->assertItemsInCart(2, $cart);
+    }
+
+    /** @test */
+    public function cart_can_create_items_from_models_using_the_canbebought_trait()
+    {
+        $cart = $this->getCartDiscount(50);
+
+        $cart->add(new BuyableProductTrait([
+            'name' => 'First item',
+        ]), 2);
+
+        $cartItem = $cart->get('027c91341fd5cf4d2579b49c4b6a90da');
+
+        $cart->setTax('027c91341fd5cf4d2579b49c4b6a90da', 19);
+
+        $this->assertEquals(10.00, $cartItem->price(2));
+        $this->assertEquals(5.00, $cartItem->discount(2));
+        $this->assertEquals(10.00, $cartItem->discountTotal(2));
+        $this->assertEquals(5.00, $cartItem->priceTarget(2));
+        $this->assertEquals(10.00, $cartItem->subtotal(2));
+        $this->assertEquals(0.95, $cartItem->tax(2));
+        $this->assertEquals(1.90, $cartItem->taxTotal(2));
+        $this->assertEquals(5.95, $cartItem->priceTax(2));
+        $this->assertEquals(11.90, $cartItem->total(2));
+    }
+
+    /** @test */
+    public function it_does_calculate_correct_results_with_rational_qtys()
+    {
+        // https://github.com/Crinsane/LaravelShoppingcart/issues/544
+        $cart = $this->getCart();
+
+        $cart->add(new BuyableProductTrait([
+            'name' => 'First item',
+        ]), 0.5);
+
+        $cartItem = $cart->get('027c91341fd5cf4d2579b49c4b6a90da');
+
+        $cart->setGlobalTax(50);
+
+        $this->assertEquals(10.00, $cartItem->price(2));
+        $this->assertEquals(5.00, $cart->subtotal(2)); //0.5 qty
+        $this->assertEquals(7.50, $cart->total(2)); // plus tax
+        $this->assertEquals(2.50, $cart->tax(2)); // tax of 5 Bucks
+    }
+
+    /** @test */
+    public function it_does_allow_adding_cart_items_with_weight_and_options()
+    {
+        // https://github.com/bumbummen99/LaravelShoppingcart/pull/5
+        $cart = $this->getCart();
+
+        $cartItem = $cart->add('293ad', 'Product 1', 1, 9.99, 550, ['size' => 'large']);
+
+        $this->assertEquals(550, $cartItem->weight);
+        $this->assertTrue($cartItem->options->has('size'));
+        $this->assertEquals('large', $cartItem->options->size);
+    }
+
+    /** @test */
+    public function it_can_merge_without_dispatching_add_events()
+    {
+        $this->artisan('migrate', [
+            '--database' => 'testing',
+        ]);
+
+        $cart = $this->getCartDiscount(50);
+        $cart->add(new BuyableProduct([
+            'name' => 'Item',
+        ]), 1);
+        $cart->add(new BuyableProduct([
+            'id'   => 2,
+            'name' => 'Item 2',
+        ]), 1);
+        $cart->store('test');
+
+        Event::fakeFor(function () {
+            $cart2 = $this->getCart();
+            $cart2->instance('test2');
+            $cart2->setGlobalTax(0);
+            $cart2->setGlobalDiscount(0);
+
+            $this->assertEquals('0', $cart2->countItems());
+
+            $cart2->merge('test', null, null, false);
+
+            Event::assertNotDispatched('cart.added');
+            Event::assertDispatched('cart.merged');
+
+            $this->assertEquals('2', $cart2->countItems());
+            $this->assertEquals(20, $cart2->totalFloat());
+        });
+    }
+
+    /** @test */
+    public function it_can_merge_dispatching_add_events()
+    {
+        $this->artisan('migrate', [
+            '--database' => 'testing',
+        ]);
+
+        $cart = $this->getCartDiscount(50);
+        $cart->add(new BuyableProduct([
+            'name' => 'Item',
+        ]), 1);
+        $cart->add(new BuyableProduct([
+            'id'   => 2,
+            'name' => 'Item 2',
+        ]), 1);
+        $cart->store('test');
+
+        Event::fakeFor(function () {
+            $cart2 = $this->getCart();
+            $cart2->instance('test2');
+            $cart2->setGlobalTax(0);
+            $cart2->setGlobalDiscount(0);
+
+            $this->assertEquals('0', $cart2->countItems());
+
+            $cart2->merge('test');
+
+            Event::assertDispatched('cart.added', 2);
+            Event::assertDispatched('cart.merged');
+            $this->assertEquals('2', $cart2->countItems());
+            $this->assertEquals(20, $cart2->totalFloat());
+        });
+    }
+
+    /** @test */
+    public function it_use_correctly_rounded_values_for_totals_and_cart_summary()
+    {
+        $this->setConfigFormat(2, ',', '');
+
+        $cart = $this->getCartDiscount(6);
+
+        $cartItem = $cart->add(new BuyableProduct([
+            'name'  => 'First item',
+            'price' => 0.18929,
+        ]), 1000);
+        $cart->add(new BuyableProduct([
+            'id'    => 2,
+            'name'  => 'Second item',
+            'price' => 4.41632,
+        ]), 5);
+        $cart->add(new BuyableProduct([
+            'id'    => 3,
+            'name'  => 'Third item',
+            'price' => 0.37995,
+        ]), 25);
+
+        $cart->setGlobalTax(22);
+
+        // check total
+        $this->assertEquals('253,29', $cart->total());
+
+        // check that the sum of cart subvalues matches the total (in order to avoid cart summary to looks wrong)
+        $this->assertEquals($cart->totalFloat(), $cart->subtotalFloat() + $cart->taxFloat());
+    }
+
+    /** @test */
+    public function it_use_gross_price_as_base_price()
+    {
+        $cart = $this->getCartDiscount(0);
+        config(['cart.calculator' => GrossPrice::class]);
+
+        $cartItem = $cart->add(new BuyableProduct([
+            'name'  => 'First item',
+            'price' => 100,
+        ]), 2);
+
+        $cart->setGlobalTax(22);
+
+        // check net price
+        $this->assertEquals(81.97, round($cartItem->priceNet, 2));
+    }
+
+    /** @test */
+    public function it_use_gross_price_and_it_use_correctly_rounded_values_for_totals_and_cart_summary()
+    {
+        $this->setConfigFormat(2, ',', '');
+        config(['cart.calculator' => GrossPrice::class]);
+
+        $cart = $this->getCartDiscount(6);
+
+        $cartItem = $cart->add(new BuyableProduct([
+            'name'  => 'First item',
+            'price' => 0.23093,
+        ]), 1000);
+        $cart->add(new BuyableProduct([
+            'id'    => 2,
+            'name'  => 'Second item',
+            'price' => 5.38791,
+        ]), 5);
+        $cart->add(new BuyableProduct([
+            'id'    => 3,
+            'name'  => 'Third item',
+            'price' => 0.46354,
+        ]), 25);
+
+        $cart->setGlobalTax(22);
+
+        // check total
+        $this->assertEquals('254,12', $cart->total());
+
+        // check item price total
+        $this->assertEquals(190, $cartItem->priceTotal);
+        // check that the sum of cart subvalues matches the total (in order to avoid cart summary to looks wrong)
+        $this->assertEquals($cart->totalFloat(), $cart->subtotalFloat() + $cart->taxFloat());
     }
 
     /**
@@ -924,9 +1604,24 @@ class CartTest extends TestCase
     private function getCart()
     {
         $session = $this->app->make('session');
-        $events  = $this->app->make('events');
+        $events = $this->app->make('events');
 
         return new Cart($session, $events);
+    }
+
+    /**
+     * Get an instance of the cart with discount.
+     *
+     * @param int $discount
+     *
+     * @return \MichelMelo\Shoppingcart\Cart
+     */
+    private function getCartDiscount($discount = 50)
+    {
+        $cart = $this->getCart();
+        $cart->setGlobalDiscount($discount);
+
+        return $cart;
     }
 
     /**
@@ -940,6 +1635,95 @@ class CartTest extends TestCase
     {
         $this->app['config']->set('cart.format.decimals', $decimals);
         $this->app['config']->set('cart.format.decimal_point', $decimalPoint);
-        $this->app['config']->set('cart.format.thousand_seperator', $thousandSeperator);
+        $this->app['config']->set('cart.format.thousand_separator', $thousandSeperator);
+    }
+
+    /** @test */
+    public function it_can_store__mutiple_instances_of_the_cart_in_a_database()
+    {
+        $this->artisan('migrate', [
+            '--database' => 'testing',
+        ]);
+
+        Event::fake();
+
+        $cart = $this->getCart();
+
+        $cart->add(new BuyableProduct());
+
+        $cart->store($identifier = 123);
+
+        Event::assertDispatched('cart.stored');
+
+        if (app('db')->getDriverName() === 'pgsql') {
+            $serialized = base64_encode(serialize($cart->content()));
+        } else {
+            $serialized = serialize($cart->content());
+        }
+
+        $newInstance = $this->getCart();
+        $newInstance->instance($instanceName = 'someinstance');
+        $newInstance->add(new BuyableProduct());
+        $newInstance->store($identifier);
+
+        Event::assertDispatched('cart.stored');
+
+        if (app('db')->getDriverName() === 'pgsql') {
+            $newInstanceSerialized = base64_encode(serialize($newInstance->content()));
+        } else {
+            $newInstanceSerialized = serialize($newInstance->content());
+        }
+
+        $this->assertDatabaseHas('shoppingcart', ['identifier' => $identifier, 'instance' => Cart::DEFAULT_INSTANCE, 'content' => $serialized]);
+
+        $this->assertDatabaseHas('shoppingcart', ['identifier' => $identifier, 'instance' => $instanceName, 'content' => $newInstanceSerialized]);
+    }
+
+    /** @test */
+    public function it_can_calculate_the_total_price_of_the_items_in_cart()
+    {
+        $cart = $this->getCart();
+
+        $cart->add(new BuyableProduct([
+            'name'  => 'first item',
+            'price' => 1000,
+        ]), $qty = 5);
+        $this->assertEquals(5000, $cart->priceTotalFloat());
+    }
+
+    /** @test */
+    public function it_can_format_the_total_price_of_the_items_in_cart()
+    {
+        $cart = $this->getCart();
+
+        $cart->add(new BuyableProduct([
+            'name'  => 'first item',
+            'price' => 1000,
+        ]), 5);
+        $this->assertEquals('5,000.00', $cart->priceTotal());
+        $this->assertEquals('5,000.0000', $cart->priceTotal(4, '.', ','));
+    }
+
+    /** @test */
+    public function it_can_erase_saved_cart_from_the_database()
+    {
+        $this->artisan('migrate', [
+            '--database' => 'testing',
+        ]);
+
+        Event::fake();
+
+        $cart = $this->getCart();
+        $cart->add(new BuyableProduct([
+            'name' => 'Item',
+        ]), 1);
+        $cart->add(new BuyableProduct([
+            'id'   => 2,
+            'name' => 'Item 2',
+        ]), 1);
+        $cart->store($identifier = 'test');
+        $cart->erase($identifier);
+        Event::assertDispatched('cart.erased');
+        $this->assertDatabaseMissing('shoppingcart', ['identifier' => $identifier, 'instance' => Cart::DEFAULT_INSTANCE]);
     }
 }

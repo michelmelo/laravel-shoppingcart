@@ -20,6 +20,7 @@ class CreateShoppingcartTable extends Migration
             $table->primary(['identifier', 'instance']);
         });
     }
+
     /**
      * Reverse the migrations.
      */
