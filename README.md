@@ -1,17 +1,11 @@
-## LaravelShoppingcart
-![CI Code Checks](https://github.com/michelmelo/laravel-shoppingcart/workflows/CI%20Code%20Checks/badge.svg?branch=master)
-[![codecov](https://codecov.io/gh/michelmelo/laravel-shoppingcart/branch/master/graph/badge.svg)](https://codecov.io/gh/michelmelo/laravel-shoppingcart)
-[![StyleCI](https://styleci.io/repos/152610878/shield?branch=master)](https://styleci.io/repos/152610878)
-[![Total Downloads](https://poser.pugx.org/bumbummen99/shoppingcart/downloads.png)](https://packagist.org/packages/bumbummen99/shoppingcart)
-[![Latest Stable Version](https://poser.pugx.org/bumbummen99/shoppingcart/v/stable)](https://packagist.org/packages/bumbummen99/shoppingcart)
-[![Latest Unstable Version](https://poser.pugx.org/bumbummen99/shoppingcart/v/unstable)](https://packagist.org/packages/bumbummen99/shoppingcart)
-[![License](https://poser.pugx.org/bumbummen99/shoppingcart/license)](https://packagist.org/packages/bumbummen99/shoppingcart)
+# Laravel Shopping Cart
 
-This is a fork of [Crinsane's LaravelShoppingcart](https://github.com/Crinsane/LaravelShoppingcart) extended with minor features compatible with Laravel 8+. An example integration can be [found here](https://github.com/michelmelo/laravel-shoppingcartDemo).
+
+This is a fork of [Crinsane's LaravelShoppingcart](https://github.com/Crinsane/LaravelShoppingcart) extended with minor features compatible with Laravel 8+.).
 
 ## Installation
 
-Install the [package](https://packagist.org/packages/bumbummen99/shoppingcart) through [Composer](http://getcomposer.org/). 
+Install the [package](https://packagist.org/packages/michelmelo/laravel-shoppingcart) through [Composer](http://getcomposer.org/). 
 
 Run the Composer require command from the Terminal:
 
@@ -27,9 +21,6 @@ You definitely should publish the `config` file and take a look at it.
 
 This will give you a `cart.php` config file in which you can make changes to the packages behaivor.
 
-## Updates
-
-As of version **4.2.0** this package does, when being used with PostgreSQL, encode the cart content to base64 before storing into database due to an [issue with saving values including zero bytes](https://github.com/michelmelo/laravel-shoppingcart/pull/167). Please consider clearing your cart table in case you are upgrading using PostgreSQL from a version **<4.2.0**.
 
 ## Table of Contents
 Look at one of the following topics to learn more about LaravelShoppingcart
@@ -44,7 +35,6 @@ Look at one of the following topics to learn more about LaravelShoppingcart
 * [Exceptions](#exceptions)
 * [Events](#events)
 * [Example](#example)
-* [Contributors](#contributors)
 
 ## Important note
 
