@@ -25,7 +25,7 @@ class Identifiable implements InstanceIdentifier
      */
     public function __construct($identifier = 'identifier', $discountRate = 0)
     {
-        $this->identifier = $identifier;
+        $this->identifier   = $identifier;
         $this->discountRate = $discountRate;
     }
 

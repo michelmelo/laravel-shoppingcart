@@ -2,8 +2,8 @@
 
 namespace MichelMelo\Tests\Shoppingcart\Fixtures;
 
-use MichelMelo\Shoppingcart\Contracts\Buyable;
 use Illuminate\Database\Eloquent\Model;
+use MichelMelo\Shoppingcart\Contracts\Buyable;
 
 class BuyableProductTrait extends Model implements Buyable
 {

@@ -2,13 +2,13 @@
 
 namespace MichelMelo\Shoppingcart;
 
+use Illuminate\Contracts\Support\Arrayable;
+use Illuminate\Contracts\Support\Jsonable;
+use Illuminate\Support\Arr;
 use MichelMelo\Shoppingcart\Calculation\DefaultCalculator;
 use MichelMelo\Shoppingcart\Contracts\Buyable;
 use MichelMelo\Shoppingcart\Contracts\Calculator;
 use MichelMelo\Shoppingcart\Exceptions\InvalidCalculatorException;
-use Illuminate\Contracts\Support\Arrayable;
-use Illuminate\Contracts\Support\Jsonable;
-use Illuminate\Support\Arr;
 use ReflectionClass;
 
 /**
@@ -119,19 +119,19 @@ class CartItem implements Arrayable, Jsonable
         if (empty($name)) {
             throw new \InvalidArgumentException('Please supply a valid name.');
         }
-        if (strlen($price) < 0 || !is_numeric($price)) {
+        if (strlen($price) < 0 || ! is_numeric($price)) {
             throw new \InvalidArgumentException('Please supply a valid price.');
         }
-        if (strlen($weight) < 0 || !is_numeric($weight)) {
+        if (strlen($weight) < 0 || ! is_numeric($weight)) {
             throw new \InvalidArgumentException('Please supply a valid weight.');
         }
 
-        $this->id = $id;
-        $this->name = $name;
-        $this->price = floatval($price);
-        $this->weight = floatval($weight);
+        $this->id      = $id;
+        $this->name    = $name;
+        $this->price   = floatval($price);
+        $this->weight  = floatval($weight);
         $this->options = new CartItemOptions($options);
-        $this->rowId = $this->generateRowId($id, $options);
+        $this->rowId   = $this->generateRowId($id, $options);
     }
 
     /**
@@ -297,7 +297,7 @@ class CartItem implements Arrayable, Jsonable
      */
     public function setQuantity($qty)
     {
-        if (empty($qty) || !is_numeric($qty)) {
+        if (empty($qty) || ! is_numeric($qty)) {
             throw new \InvalidArgumentException('Please supply a valid quantity.');
         }
 
@@ -313,8 +313,8 @@ class CartItem implements Arrayable, Jsonable
      */
     public function updateFromBuyable(Buyable $item)
     {
-        $this->id = $item->getBuyableIdentifier($this->options);
-        $this->name = $item->getBuyableDescription($this->options);
+        $this->id    = $item->getBuyableIdentifier($this->options);
+        $this->name  = $item->getBuyableDescription($this->options);
         $this->price = $item->getBuyablePrice($this->options);
     }
 
@@ -327,11 +327,11 @@ class CartItem implements Arrayable, Jsonable
      */
     public function updateFromArray(array $attributes)
     {
-        $this->id = Arr::get($attributes, 'id', $this->id);
-        $this->qty = Arr::get($attributes, 'qty', $this->qty);
-        $this->name = Arr::get($attributes, 'name', $this->name);
-        $this->price = Arr::get($attributes, 'price', $this->price);
-        $this->weight = Arr::get($attributes, 'weight', $this->weight);
+        $this->id      = Arr::get($attributes, 'id', $this->id);
+        $this->qty     = Arr::get($attributes, 'qty', $this->qty);
+        $this->name    = Arr::get($attributes, 'name', $this->name);
+        $this->price   = Arr::get($attributes, 'price', $this->price);
+        $this->weight  = Arr::get($attributes, 'weight', $this->weight);
         $this->options = new CartItemOptions(Arr::get($attributes, 'options', $this->options));
 
         $this->rowId = $this->generateRowId($this->id, $this->options->all());
@@ -423,11 +423,11 @@ class CartItem implements Arrayable, Jsonable
         }
 
         $class = new ReflectionClass(config('cart.calculator', DefaultCalculator::class));
-        if (!$class->implementsInterface(Calculator::class)) {
+        if (! $class->implementsInterface(Calculator::class)) {
             throw new InvalidCalculatorException('The configured Calculator seems to be invalid. Calculators have to implement the Calculator Contract.');
         }
 
-        return call_user_func($class->getName().'::getAttribute', $attribute, $this);
+        return call_user_func($class->getName() . '::getAttribute', $attribute, $this);
     }
 
     /**
@@ -484,7 +484,7 @@ class CartItem implements Arrayable, Jsonable
     {
         ksort($options);
 
-        return md5($id.serialize($options));
+        return md5($id . serialize($options));
     }
 
     /**

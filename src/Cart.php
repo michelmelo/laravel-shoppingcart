@@ -4,16 +4,16 @@ namespace MichelMelo\Shoppingcart;
 
 use Carbon\Carbon;
 use Closure;
-use MichelMelo\Shoppingcart\Contracts\Buyable;
-use MichelMelo\Shoppingcart\Contracts\InstanceIdentifier;
-use MichelMelo\Shoppingcart\Exceptions\CartAlreadyStoredException;
-use MichelMelo\Shoppingcart\Exceptions\InvalidRowIDException;
-use MichelMelo\Shoppingcart\Exceptions\UnknownModelException;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Session\SessionManager;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Traits\Macroable;
+use MichelMelo\Shoppingcart\Contracts\Buyable;
+use MichelMelo\Shoppingcart\Contracts\InstanceIdentifier;
+use MichelMelo\Shoppingcart\Exceptions\CartAlreadyStoredException;
+use MichelMelo\Shoppingcart\Exceptions\InvalidRowIDException;
+use MichelMelo\Shoppingcart\Exceptions\UnknownModelException;
 
 class Cart
 {
@@ -79,7 +79,7 @@ class Cart
     public function __construct(SessionManager $session, Dispatcher $events)
     {
         $this->session = $session;
-        $this->events = $events;
+        $this->events  = $events;
         $this->taxRate = config('cart.tax');
 
         $this->instance(self::DEFAULT_INSTANCE);
@@ -98,10 +98,10 @@ class Cart
 
         if ($instance instanceof InstanceIdentifier) {
             $this->discount = $instance->getInstanceGlobalDiscount();
-            $instance = $instance->getInstanceIdentifier();
+            $instance       = $instance->getInstanceIdentifier();
         }
 
-        $this->instance = 'cart.'.$instance;
+        $this->instance = 'cart.' . $instance;
 
         return $this;
     }
@@ -153,11 +153,11 @@ class Cart
      */
     public function addCartItem($item, $keepDiscount = false, $keepTax = false, $dispatchEvent = true)
     {
-        if (!$keepDiscount) {
+        if (! $keepDiscount) {
             $item->setDiscountRate($this->discount);
         }
 
-        if (!$keepTax) {
+        if (! $keepTax) {
             $item->setTaxRate($this->taxRate);
         }
 
@@ -271,7 +271,7 @@ class Cart
     {
         $content = $this->getContent();
 
-        if (!$content->has($rowId)) {
+        if (! $content->has($rowId)) {
             throw new InvalidRowIDException("The cart does not contain rowId {$rowId}.");
         }
 
@@ -527,7 +527,7 @@ class Cart
      */
     public function associate($rowId, $model)
     {
-        if (is_string($model) && !class_exists($model)) {
+        if (is_string($model) && ! class_exists($model)) {
             throw new UnknownModelException("The supplied model {$model} does not exist.");
         }
 
@@ -675,7 +675,7 @@ class Cart
 
         $currentInstance = $this->currentInstance();
 
-        if (!$this->storedCartInstanceWithIdentifierExists($currentInstance, $identifier)) {
+        if (! $this->storedCartInstanceWithIdentifierExists($currentInstance, $identifier)) {
             return;
         }
 
@@ -723,7 +723,7 @@ class Cart
 
         $instance = $this->currentInstance();
 
-        if (!$this->storedCartInstanceWithIdentifierExists($instance, $identifier)) {
+        if (! $this->storedCartInstanceWithIdentifierExists($instance, $identifier)) {
             return;
         }
 
@@ -744,7 +744,7 @@ class Cart
      */
     public function merge($identifier, $keepDiscount = false, $keepTax = false, $dispatchAdd = true, $instance = self::DEFAULT_INSTANCE)
     {
-        if (!$this->storedCartInstanceWithIdentifierExists($instance, $identifier)) {
+        if (! $this->storedCartInstanceWithIdentifierExists($instance, $identifier)) {
             return false;
         }
 
@@ -841,7 +841,7 @@ class Cart
      */
     private function isMulti($item)
     {
-        if (!is_array($item)) {
+        if (! is_array($item)) {
             return false;
         }
 

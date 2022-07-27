@@ -3,6 +3,10 @@
 namespace MichelMelo\Tests\Shoppingcart;
 
 use Carbon\Carbon;
+use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Session\SessionManager;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Event;
 use MichelMelo\Shoppingcart\Calculation\GrossPrice;
 use MichelMelo\Shoppingcart\Cart;
 use MichelMelo\Shoppingcart\CartItem;
@@ -11,10 +15,6 @@ use MichelMelo\Tests\Shoppingcart\Fixtures\BuyableProduct;
 use MichelMelo\Tests\Shoppingcart\Fixtures\BuyableProductTrait;
 use MichelMelo\Tests\Shoppingcart\Fixtures\Identifiable;
 use MichelMelo\Tests\Shoppingcart\Fixtures\ProductModel;
-use Illuminate\Contracts\Auth\Authenticatable;
-use Illuminate\Session\SessionManager;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Event;
 use Mockery;
 use Orchestra\Testbench\TestCase;
 
@@ -65,7 +65,7 @@ class CartTest extends TestCase
         parent::setUp();
 
         $this->app->afterResolving('migrator', function ($migrator) {
-            $migrator->path(realpath(__DIR__.'/../src/Database/migrations'));
+            $migrator->path(realpath(__DIR__ . '/../src/Database/migrations'));
         });
     }
 
@@ -1369,7 +1369,7 @@ class CartTest extends TestCase
         Event::fake();
 
         $identifier = new Identifiable('User1', 0);
-        $cart = $this->getCart();
+        $cart       = $this->getCart();
 
         $cart->instance($identifier);
         $this->assertEquals('User1', $cart->currentInstance());
@@ -1604,7 +1604,7 @@ class CartTest extends TestCase
     private function getCart()
     {
         $session = $this->app->make('session');
-        $events = $this->app->make('events');
+        $events  = $this->app->make('events');
 
         return new Cart($session, $events);
     }
@@ -1661,7 +1661,7 @@ class CartTest extends TestCase
             $serialized = serialize($cart->content());
         }
 
-        $newInstance = $this->getCart();
+        $newInstance                         = $this->getCart();
         $newInstance->instance($instanceName = 'someinstance');
         $newInstance->add(new BuyableProduct());
         $newInstance->store($identifier);
